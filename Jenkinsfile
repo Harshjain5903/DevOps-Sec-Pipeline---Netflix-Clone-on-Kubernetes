@@ -65,29 +65,29 @@ pipeline {
         stage('Docker build') {
             steps {
                 withCredentials([string(credentialsId: 'tmdb-api-key', variable: 'TMDB_KEY')]) {
-                    sh 'docker build --build-arg TMDB_V3_API_KEY=$TMDB_KEY -t $IMAGE_NAME:$IMAGE_TAG -t $IMAGE_NAME:latest .'
+                    sh 'docker build --build-arg TMDB_V3_API_KEY=${TMDB_KEY} -t ${IMAGE_NAME}:${IMAGE_TAG} -t ${IMAGE_NAME}:latest .'
                 }
             }
         }
         stage('Trivy image scan') {
             steps {
                 // full report for the email, then fail the build on critical findings before anything is pushed
-                sh 'trivy image --format table -o trivyimage.txt $IMAGE_NAME:$IMAGE_TAG'
-                sh 'trivy image --exit-code 1 --severity CRITICAL --ignore-unfixed $IMAGE_NAME:$IMAGE_TAG'
+                sh 'trivy image --format table -o trivyimage.txt ${IMAGE_NAME}:${IMAGE_TAG}'
+                sh 'trivy image --exit-code 1 --severity CRITICAL --ignore-unfixed ${IMAGE_NAME}:${IMAGE_TAG}'
             }
         }
         stage('Docker push') {
             steps {
                 withDockerRegistry(credentialsId: 'docker', toolName: 'docker') {
-                    sh 'docker push $IMAGE_NAME:$IMAGE_TAG'
-                    sh 'docker push $IMAGE_NAME:latest'
+                    sh 'docker push ${IMAGE_NAME}:${IMAGE_TAG}'
+                    sh 'docker push ${IMAGE_NAME}:latest'
                 }
             }
         }
         stage('Deploy to container') {
             steps {
                 sh 'docker rm -f netflix || true'
-                sh 'docker run -d --name netflix -p 8081:8080 $IMAGE_NAME:$IMAGE_TAG'
+                sh 'docker run -d --name netflix -p 8081:8080 ${IMAGE_NAME}:${IMAGE_TAG}'
             }
         }
         stage('Deploy to kubernetes') {
@@ -97,11 +97,11 @@ pipeline {
                         sh 'kubectl apply -f namespace.yml'
                         sh 'kubectl apply -f service.yml -f hpa.yml -f pdb.yml'
                         // render the build tag into the manifest so each release is its own rollout revision
-                        sh 'sed "s#image: $IMAGE_NAME:latest#image: $IMAGE_NAME:$IMAGE_TAG#" deployment.yml | kubectl apply -f -'
+                        sh 'sed "s#image: ${IMAGE_NAME}:latest#image: ${IMAGE_NAME}:${IMAGE_TAG}#" deployment.yml | kubectl apply -f -'
                         sh '''
-                            if ! kubectl rollout status deployment/netflix-app -n $K8S_NAMESPACE --timeout=180s; then
+                            if ! kubectl rollout status deployment/netflix-app -n ${K8S_NAMESPACE} --timeout=180s; then
                                 echo "Rollout failed, rolling back"
-                                kubectl rollout undo deployment/netflix-app -n $K8S_NAMESPACE
+                                kubectl rollout undo deployment/netflix-app -n ${K8S_NAMESPACE}
                                 exit 1
                             fi
                         '''
