@@ -12,7 +12,6 @@ import MainLoadingScreen from "src/components/MainLoadingScreen";
 export default function MainLayout() {
   const location = useLocation();
   const navigation = useNavigation();
-  // console.log("Nav Stat: ", navigation.state);
   return (
     <Box
       sx={{
