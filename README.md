@@ -182,54 +182,16 @@ We will install a sonar scanner in the tools.
 Create a Jenkins webhook
 
 1. **Configure CI/CD Pipeline in Jenkins:**
-- Create a CI/CD pipeline in Jenkins to automate your application deployment.
-
-```groovy
-pipeline {
-    agent any
-    tools {
-        jdk 'jdk17'
-        nodejs 'node16'
-    }
-    environment {
-        SCANNER_HOME = tool 'sonar-scanner'
-    }
-    stages {
-        stage('clean workspace') {
-            steps {
-                cleanWs()
-            }
-        }
-        stage('Checkout from Git') {
-            steps {
-                git branch: 'main', url: 'https://github.com/Harshjain5903/DevOps-Sec-Pipeline---Netflix-Clone-on-Kubernetes.git'
-            }
-        }
-        stage("Sonarqube Analysis") {
-            steps {
-                withSonarQubeEnv('sonar-server') {
-                    sh '''$SCANNER_HOME/bin/sonar-scanner -Dsonar.projectName=Netflix \
-                    -Dsonar.projectKey=Netflix'''
-                }
-            }
-        }
-        stage("quality gate") {
-            steps {
-                script {
-                    waitForQualityGate abortPipeline: false, credentialsId: 'Sonar-token'
-                }
-            }
-        }
-        stage('Install Dependencies') {
-            steps {
-                sh "npm install"
-            }
-        }
-    }
-}
-```
-
-Certainly, here are the instructions without step numbers:
+- Create a Pipeline job, choose **Pipeline script from SCM**, point it at this repo and leave the script path as `Jenkinsfile`.
+- The [Jenkinsfile](Jenkinsfile) runs these stages in order:
+  1. SonarQube analysis, then waits on the quality gate (fails the build if the gate fails)
+  2. `npm ci` and a TypeScript type check
+  3. OWASP Dependency-Check and a Trivy filesystem scan (vulnerabilities and leaked secrets)
+  4. Docker build, tagged with the Jenkins build number and `latest`
+  5. Trivy image scan, the build stops here on any fixable CRITICAL vulnerability so nothing vulnerable gets pushed
+  6. Push to Docker Hub, run on the Jenkins host (port 8081) and deploy to Kubernetes
+  7. Waits for the Kubernetes rollout and rolls back automatically if it doesn't become healthy
+- Scan reports are archived on the build and emailed. See [ROLLBACK.md](ROLLBACK.md) for manual rollbacks.
 
 **Install Dependency-Check and Docker Tools in Jenkins**
 
@@ -267,97 +229,19 @@ Certainly, here are the instructions without step numbers:
   - Go to "Dashboard" → "Manage Jenkins" → "Manage Credentials."
   - Click on "System" and then "Global credentials (unrestricted)."
   - Click on "Add Credentials" on the left side.
-  - Choose "Secret text" as the kind of credentials.
-  - Enter your DockerHub credentials (Username and Password) and give the credentials an ID (e.g., "docker").
+  - Choose "Username with password" as the kind of credentials.
+  - Enter your DockerHub username and an access token and give the credentials an ID (e.g., "docker").
   - Click "OK" to save your DockerHub credentials.
 
 Now, you have installed the Dependency-Check plugin, configured the tool, and added Docker-related plugins along with your DockerHub credentials in Jenkins. You can now proceed with configuring your Jenkins pipeline to include these tools and credentials in your CI/CD process.
 
-```groovy
+The pipeline picks these tools and credentials up from the [Jenkinsfile](Jenkinsfile), nothing needs to be pasted in.
 
-pipeline{
-    agent any
-    tools{
-        jdk 'jdk17'
-        nodejs 'node16'
-    }
-    environment {
-        SCANNER_HOME=tool 'sonar-scanner'
-    }
-    stages {
-        stage('clean workspace'){
-            steps{
-                cleanWs()
-            }
-        }
-        stage('Checkout from Git'){
-            steps{
-                git branch: 'main', url: 'https://github.com/Harshjain5903/DevOps-Sec-Pipeline---Netflix-Clone-on-Kubernetes.git'
-            }
-        }
-        stage("Sonarqube Analysis "){
-            steps{
-                withSonarQubeEnv('sonar-server') {
-                    sh ''' $SCANNER_HOME/bin/sonar-scanner -Dsonar.projectName=Netflix \
-                    -Dsonar.projectKey=Netflix '''
-                }
-            }
-        }
-        stage("quality gate"){
-           steps {
-                script {
-                    waitForQualityGate abortPipeline: false, credentialsId: 'Sonar-token' 
-                }
-            } 
-        }
-        stage('Install Dependencies') {
-            steps {
-                sh "npm install"
-            }
-        }
-        stage('OWASP FS SCAN') {
-            steps {
-                dependencyCheck additionalArguments: '--scan ./ --disableYarnAudit --disableNodeAudit', odcInstallation: 'DP-Check'
-                dependencyCheckPublisher pattern: '**/dependency-check-report.xml'
-            }
-        }
-        stage('TRIVY FS SCAN') {
-            steps {
-                sh "trivy fs . > trivyfs.txt"
-            }
-        }
-        stage("Docker Build & Push"){
-            steps{
-                script{
-                   withDockerRegistry(credentialsId: 'docker', toolName: 'docker'){   
-                       sh "docker build --build-arg TMDB_V3_API_KEY=<yourapikey> -t netflix ."
-                       sh "docker tag netflix harshjain5903/netflix:latest "
-                       sh "docker push harshjain5903/netflix:latest "
-                    }
-                }
-            }
-        }
-        stage("TRIVY"){
-            steps{
-                sh "trivy image harshjain5903/netflix:latest > trivyimage.txt" 
-            }
-        }
-        stage('Deploy to container'){
-            steps{
-                sh 'docker run -d --name netflix -p 8081:8080 harshjain5903/netflix:latest'
-            }
-        }
-    }
-}
+If you get a docker login failed error:
 
-
-If you get docker login failed errorr
-
-sudo su
+```bash
 sudo usermod -aG docker jenkins
 sudo systemctl restart jenkins
-
-
 ```
 
 **Phase 4: Monitoring**
