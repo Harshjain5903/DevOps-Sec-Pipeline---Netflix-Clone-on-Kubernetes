@@ -54,7 +54,7 @@ A comprehensive DevSecOps implementation demonstrating containerization, CI/CD p
     
     ```bash
     docker build -t netflix .
-    docker run -d --name netflix -p 8081:80 netflix:latest
+    docker run -d --name netflix -p 8081:8080 netflix:latest
     
     #to delete
     docker stop <containerid>
@@ -344,7 +344,7 @@ pipeline{
         }
         stage('Deploy to container'){
             steps{
-                sh 'docker run -d --name netflix -p 8081:80 harshjain5903/netflix:latest'
+                sh 'docker run -d --name netflix -p 8081:8080 harshjain5903/netflix:latest'
             }
         }
     }
