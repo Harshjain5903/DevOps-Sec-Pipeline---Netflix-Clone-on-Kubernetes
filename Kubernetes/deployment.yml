@@ -2,10 +2,17 @@ apiVersion: apps/v1
 kind: Deployment
 metadata:
   name: netflix-app
+  namespace: netflix
   labels:
     app: netflix-app
 spec:
-  replicas: 2
+  # replica count is owned by the HPA (hpa.yml)
+  revisionHistoryLimit: 10
+  strategy:
+    type: RollingUpdate
+    rollingUpdate:
+      maxUnavailable: 0
+      maxSurge: 1
   selector:
     matchLabels:
       app: netflix-app
@@ -14,11 +21,31 @@ spec:
       labels:
         app: netflix-app
     spec:
+      automountServiceAccountToken: false
+      securityContext:
+        runAsNonRoot: true
+        runAsUser: 101
+        runAsGroup: 101
+        seccompProfile:
+          type: RuntimeDefault
+      topologySpreadConstraints:
+      - maxSkew: 1
+        topologyKey: kubernetes.io/hostname
+        whenUnsatisfiable: ScheduleAnyway
+        labelSelector:
+          matchLabels:
+            app: netflix-app
       containers:
       - name: netflix-app
         image: harshjain5903/netflix:latest
         ports:
-        - containerPort: 8080
+        - name: http
+          containerPort: 8080
+        securityContext:
+          allowPrivilegeEscalation: false
+          readOnlyRootFilesystem: true
+          capabilities:
+            drop: ["ALL"]
         resources:
           requests:
             cpu: 50m
@@ -28,13 +55,19 @@ spec:
             memory: 128Mi
         readinessProbe:
           httpGet:
-            path: /
-            port: 8080
-          initialDelaySeconds: 5
+            path: /healthz
+            port: http
+          initialDelaySeconds: 3
           periodSeconds: 10
         livenessProbe:
           httpGet:
-            path: /
-            port: 8080
-          initialDelaySeconds: 15
+            path: /healthz
+            port: http
+          initialDelaySeconds: 10
           periodSeconds: 20
+        volumeMounts:
+        - name: tmp
+          mountPath: /tmp
+      volumes:
+      - name: tmp
+        emptyDir: {}

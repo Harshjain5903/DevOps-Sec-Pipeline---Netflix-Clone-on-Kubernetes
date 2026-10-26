@@ -6,34 +6,34 @@ and sets that tag on the deployment, so every release shows up in rollout histor
 ## Check what's running
 
 ```bash
-kubectl rollout status deployment/netflix-app
-kubectl rollout history deployment/netflix-app
-kubectl get deployment netflix-app -o jsonpath='{.spec.template.spec.containers[0].image}'
+kubectl rollout status deployment/netflix-app -n netflix
+kubectl rollout history deployment/netflix-app -n netflix
+kubectl get deployment netflix-app -n netflix -o jsonpath='{.spec.template.spec.containers[0].image}'
 ```
 
 ## Roll back to the previous release
 
 ```bash
-kubectl rollout undo deployment/netflix-app
-kubectl rollout status deployment/netflix-app
+kubectl rollout undo deployment/netflix-app -n netflix
+kubectl rollout status deployment/netflix-app -n netflix
 ```
 
 ## Roll back to a specific release
 
 ```bash
-kubectl rollout history deployment/netflix-app          # find the revision
-kubectl rollout undo deployment/netflix-app --to-revision=<rev>
+kubectl rollout history deployment/netflix-app -n netflix          # find the revision
+kubectl rollout undo deployment/netflix-app -n netflix --to-revision=<rev>
 ```
 
 or pin a known good image directly:
 
 ```bash
-kubectl set image deployment/netflix-app netflix-app=harshjain5903/netflix:<build-number>
+kubectl set image deployment/netflix-app -n netflix netflix-app=harshjain5903/netflix:<build-number>
 ```
 
 ## After rolling back
 
-- Check the app on `NodeIP:30007` and the pods are Ready (`kubectl get pods -l app=netflix-app`).
+- Check the app on `NodeIP:30007` and the pods are Ready (`kubectl get pods -n netflix -l app=netflix-app`).
 - Readiness probe keeps bad pods out of the service, so if a rollout hangs, look at
-  `kubectl describe pod <pod>` before rolling back.
+  `kubectl describe pod <pod> -n netflix` before rolling back.
 - Note the bad build number and why it was rolled back before the next deploy.
