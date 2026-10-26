@@ -55,7 +55,9 @@ pipeline{
                    withDockerRegistry(credentialsId: 'docker', toolName: 'docker'){   
                        sh "docker build --build-arg TMDB_V3_API_KEY=<yourtmdbapikey> -t netflix ."
                        sh "docker tag netflix harshjain5903/netflix:latest "
+                       sh "docker tag netflix harshjain5903/netflix:${BUILD_NUMBER}"
                        sh "docker push harshjain5903/netflix:latest "
+                       sh "docker push harshjain5903/netflix:${BUILD_NUMBER}"
                     }
                 }
             }
@@ -70,13 +72,15 @@ pipeline{
                 sh 'docker run -d -p 8081:80 harshjain5903/netflix:latest'
             }
         }
-        stage('Deploy to kubernets'){
+        stage('Deploy to kubernetes'){
             steps{
                 script{
                     dir('Kubernetes') {
                         withKubeConfig(caCertificate: '', clusterName: '', contextName: '', credentialsId: 'k8s', namespace: '', restrictKubeConfigAccess: false, serverUrl: '') {
                                 sh 'kubectl apply -f deployment.yml'
                                 sh 'kubectl apply -f service.yml'
+                                // pin the build tag so rollout history is usable for rollbacks
+                                sh "kubectl set image deployment/netflix-app netflix-app=harshjain5903/netflix:${BUILD_NUMBER}"
                         }   
                     }
                 }
