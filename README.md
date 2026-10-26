@@ -169,6 +169,8 @@ Goto Jenkins Dashboard → Manage Jenkins → Credentials → Add Secret Text. I
 
 After adding sonar token
 
+Add the TMDB API key the same way (Secret Text) with the ID `tmdb-api-key`. The pipeline reads it from there so the key never has to be written into the Jenkinsfile.
+
 Click on Apply and Save
 
 **The Configure System option** is used in Jenkins to configure different server
