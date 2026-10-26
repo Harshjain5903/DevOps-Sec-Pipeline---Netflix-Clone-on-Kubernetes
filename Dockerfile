@@ -10,6 +10,10 @@ RUN npm run build
 
 # runs as the unprivileged nginx user (uid 101) on 8080
 FROM nginxinc/nginx-unprivileged:stable-alpine
+# pick up OS security fixes released after the base image, curl isn't needed at runtime
+USER root
+RUN apk upgrade --no-cache && apk del --no-cache curl
+USER 101
 COPY nginx/default.conf /etc/nginx/conf.d/default.conf
 COPY nginx/security-headers.conf /etc/nginx/snippets/security-headers.conf
 COPY --from=builder /app/dist /usr/share/nginx/html
